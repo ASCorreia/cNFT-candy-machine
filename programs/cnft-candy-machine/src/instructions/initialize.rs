@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use solana_program::pubkey::Pubkey;
 use crate::state::{Config, TreeStatus};
 
 use mpl_bubblegum::{instructions::CreateTreeConfigCpiBuilder, ID as BUBBLEGUM_ID};
