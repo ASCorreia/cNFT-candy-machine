@@ -17,6 +17,9 @@ pub struct Initialize<'info> {
         space = Config::INIT_SPACE
     )]
     pub config: Account<'info, Config>,
+    /// CHECK: This account is checked in the instruction
+    #[account(mut)]
+    pub tree_config: UncheckedAccount<'info>,
     /// CHECK:
     #[account(
         seeds = [b"authority", authority.key().as_ref()],
@@ -47,7 +50,7 @@ pub struct Initialize<'info> {
 }
 
 impl<'info> Initialize<'info> {
-    pub fn init_config(&mut self, total_supply: u32) -> Result<()> {
+    pub fn init_config(&mut self, total_supply: u32, bumps: &InitializeBumps) -> Result<()> {
         self.config.set_inner(
             Config {
                 authority: self.authority.key(),
@@ -55,6 +58,7 @@ impl<'info> Initialize<'info> {
                 total_supply,
                 current_supply: 0,
                 status: TreeStatus::Inactive,
+                bump: bumps.config, 
             },
         );
         Ok(())
@@ -62,24 +66,33 @@ impl<'info> Initialize<'info> {
 
     pub fn init_tree(&mut self, max_depth: u32, max_buffer_size: u32) -> Result<()> {
         let bubblegum_program = &self.bubblegum_program.to_account_info();
+        let tree_config = &self.tree_config.to_account_info();
         let merkle_tree = &self.merkle_tree.to_account_info();
-        let tree_creator = &self.tree_authority.to_account_info();
+        let tree_creator = &self.config.to_account_info();
         let payer = &self.authority.to_account_info();
         let log_wrapper = &self.log_wrapper.to_account_info();
         let compression_program = &self.compression_program.to_account_info();
+        let system_program = &self.system_program.to_account_info();
 
+        let seeds = &[
+            &b"config"[..], 
+            &self.authority.key.as_ref(),
+            &[self.config.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
 
         CreateTreeConfigCpiBuilder::new(bubblegum_program)
-            .max_buffer_size(max_buffer_size)
-            .max_depth(max_depth)
+            .tree_config(tree_config)
             .merkle_tree(merkle_tree)
-            .tree_config(tree_creator)
-            .tree_creator(tree_creator)
             .payer(payer)
-            .public(false)
+            .tree_creator(tree_creator)
             .log_wrapper(log_wrapper)
             .compression_program(compression_program)
-            .invoke()?;          
+            .system_program(system_program)
+            .max_depth(max_depth)
+            .max_buffer_size(max_buffer_size)
+            .public(false)
+            .invoke_signed(signer_seeds)?;          
         
         Ok(())
     }
