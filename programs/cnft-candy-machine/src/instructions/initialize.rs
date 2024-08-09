@@ -57,7 +57,7 @@ impl<'info> Initialize<'info> {
                 allow_list: vec![],
                 total_supply,
                 current_supply: 0,
-                status: TreeStatus::Inactive,
+                status: TreeStatus::Active,
                 bump: bumps.config, 
             },
         );
@@ -65,6 +65,13 @@ impl<'info> Initialize<'info> {
     }
 
     pub fn init_tree(&mut self, max_depth: u32, max_buffer_size: u32) -> Result<()> {
+        let seeds = &[
+            &b"config"[..], 
+            &self.authority.key.as_ref(),
+            &[self.config.bump],
+        ];
+        let signer_seeds = &[&seeds[..]];
+        
         let bubblegum_program = &self.bubblegum_program.to_account_info();
         let tree_config = &self.tree_config.to_account_info();
         let merkle_tree = &self.merkle_tree.to_account_info();
@@ -73,13 +80,6 @@ impl<'info> Initialize<'info> {
         let log_wrapper = &self.log_wrapper.to_account_info();
         let compression_program = &self.compression_program.to_account_info();
         let system_program = &self.system_program.to_account_info();
-
-        let seeds = &[
-            &b"config"[..], 
-            &self.authority.key.as_ref(),
-            &[self.config.bump],
-        ];
-        let signer_seeds = &[&seeds[..]];
 
         CreateTreeConfigCpiBuilder::new(bubblegum_program)
             .tree_config(tree_config)

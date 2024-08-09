@@ -5,7 +5,7 @@ use crate::constants::{ANCHOR_DESCRIMINATOR_SIZE, PUBKEY_SIZE, TREE_STATUS_SIZE,
 #[account]
 pub struct Config {
     pub authority: Pubkey,
-    pub allow_list: Vec<Pubkey>,
+    pub allow_list: Vec<AllowListStruct>,
     pub total_supply: u32,
     pub current_supply: u32,
     pub status: TreeStatus,
@@ -20,5 +20,10 @@ impl Space for Config {
 pub enum TreeStatus {
     Inactive,
     Active,
-    Finished,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]
+pub struct AllowListStruct {
+    pub user: Pubkey,
+    pub amount: u8,
 }
