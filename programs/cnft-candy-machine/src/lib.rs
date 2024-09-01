@@ -19,11 +19,15 @@ pub mod cnft_candy_machine {
         ctx.accounts.init_tree(max_depth, max_buffer_size)
     }
 
+    pub fn create_collection(ctx: Context<CreateCollection>) -> Result<()> {
+        ctx.accounts.create_collection()
+    }
+
     pub fn add_allow_list(ctx: Context<AllowList>, amount: u8) -> Result<()> {
         ctx.accounts.add(amount)
     }
 
-    pub fn mint(ctx: Context<Mint>, name: String, symbol: String, uri: String) -> Result<()> {
+    pub fn mint(ctx: Context<MintNFT>, name: String, symbol: String, uri: String) -> Result<()> {
         ctx.accounts.mint_cnft(name, symbol, uri)
     }
 }

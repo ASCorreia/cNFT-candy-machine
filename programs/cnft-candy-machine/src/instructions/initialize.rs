@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::{associated_token::AssociatedToken, metadata::Metadata, token::{Mint, Token, TokenAccount}};
 use crate::state::{Config, TreeStatus};
 
 use mpl_bubblegum::{instructions::CreateTreeConfigCpiBuilder, ID as BUBBLEGUM_ID};
@@ -16,7 +17,18 @@ pub struct Initialize<'info> {
         bump,
         space = Config::INIT_SPACE
     )]
-    pub config: Account<'info, Config>,
+    pub config: Box<Account<'info, Config>>,
+    pub allow_mint: Option<Account<'info, Mint>>,
+    #[account(
+        init,
+        payer = authority,
+        seeds = [b"collection", config.key().as_ref()],
+        bump,
+        mint::decimals = 0,
+        mint::authority = config,
+        mint::freeze_authority = config,
+    )]
+    pub collection: Account<'info, Mint>,
     /// CHECK: This account is checked in the instruction
     #[account(mut)]
     pub tree_config: UncheckedAccount<'info>,
@@ -47,14 +59,24 @@ pub struct Initialize<'info> {
     #[account(address = SPL_ACCOUNT_COMPRESSION_ID)]
     pub compression_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub metadata_program: Program<'info, Metadata>,
 }
 
 impl<'info> Initialize<'info> {
     pub fn init_config(&mut self, total_supply: u32, bumps: &InitializeBumps) -> Result<()> {
+        let allow_mint = match self.allow_mint.clone() {
+            Some(value) => Some(value.key()),
+            None => None,
+        };
+
         self.config.set_inner(
             Config {
                 authority: self.authority.key(),
                 allow_list: vec![],
+                allow_mint,
+                collection: self.collection.key(),
                 total_supply,
                 current_supply: 0,
                 status: TreeStatus::Active,

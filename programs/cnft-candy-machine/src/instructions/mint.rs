@@ -1,7 +1,10 @@
 use anchor_lang::prelude::*;
 
-use mpl_bubblegum::instructions::MintV1CpiBuilder;
-use mpl_bubblegum::types::{MetadataArgs, TokenProgramVersion, TokenStandard};
+use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::metadata::{MasterEditionAccount, Metadata, MetadataAccount};
+use anchor_spl::token::{burn, Burn, Mint, Token, TokenAccount};
+use mpl_bubblegum::instructions::{MintToCollectionV1CpiBuilder, MintV1CpiBuilder};
+use mpl_bubblegum::types::{Collection, MetadataArgs, TokenProgramVersion, TokenStandard};
 use mpl_bubblegum::ID as BUBBLEGUM_ID;
 use spl_account_compression::ID as SPL_ACCOUNT_COMPRESSION_ID;
 use spl_noop::ID as SPL_NOOP_ID;
@@ -9,7 +12,8 @@ use spl_noop::ID as SPL_NOOP_ID;
 use crate::{state::Config, CustomError};
 
 #[derive(Accounts)]
-pub struct Mint<'info> {
+pub struct MintNFT<'info> {
+    #[account(mut)]
     pub user: Signer<'info>,
     pub authority: SystemAccount<'info>,
     #[account(
@@ -18,6 +22,52 @@ pub struct Mint<'info> {
         bump = config.bump,
     )]
     pub config: Account<'info, Config>,
+    #[account(
+        mut,
+    )]
+    pub allow_mint: Option<Account<'info, Mint>>,
+    #[account(
+        mut,
+    )]
+    pub allow_mint_ata: Option<Account<'info, TokenAccount>>,
+    #[account(
+        mut,
+        seeds = [b"collection", config.key().as_ref()],
+        bump,
+    )]
+    pub collection: Account<'info, Mint>,
+    /// CHECK:
+    #[account(
+        mut,
+        seeds = [
+            b"metadata",
+            metadata_program.key().as_ref(),
+            collection.key().as_ref()
+        ],
+        seeds::program = metadata_program.key(),
+        bump,
+    )]
+    pub collection_metadata: Account<'info, MetadataAccount>,
+    /// CHECK:
+    #[account(
+        mut,
+        seeds = [
+            b"metadata",
+            metadata_program.key().as_ref(),
+            collection.key().as_ref(),
+            b"edition",
+        ],
+        seeds::program = metadata_program.key(),
+        bump,
+    )]
+    pub collection_edition: Account<'info, MasterEditionAccount>,
+    #[account(
+        init,
+        payer = user,
+        associated_token::mint = collection,
+        associated_token::authority = user,
+    )]
+    pub destination: Box<Account<'info, TokenAccount>>,
     /// CHECK:
     #[account(mut)]
     pub tree_config: UncheckedAccount<'info>,
@@ -35,9 +85,12 @@ pub struct Mint<'info> {
     #[account(address = SPL_ACCOUNT_COMPRESSION_ID)]
     pub compression_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub metadata_program: Program<'info, Metadata>,
 }
 
-impl<'info> Mint<'info> {
+impl<'info> MintNFT<'info> {
     pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String) -> Result<()> {
         let seeds = &[
             &b"config"[..], 
@@ -46,44 +99,75 @@ impl<'info> Mint<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
-        self.config.allow_list.iter().find(|x| x.user == self.user.key()).ok_or(CustomError::UserNotAllowed)?;
+        if let (Some(allow_mint), Some(allow_mint_ata)) = (&self.allow_mint, &self.allow_mint_ata) {
 
-        let user_struct = self.config.allow_list.iter_mut().find(|x| x.user == self.user.key()).unwrap();
-        
-        if user_struct.amount == 0 {
-            return Err(CustomError::AlreadyClaimed.into());
+            require!(allow_mint.key() == self.config.allow_mint.unwrap(), CustomError::InvalidAllowMint);
+
+            let cpi_program = self.token_program.to_account_info();
+
+            let cpi_accounts = Burn {
+                mint: allow_mint.to_account_info(),
+                from: allow_mint_ata.to_account_info(),
+                authority: self.user.to_account_info(),
+            };
+
+            let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+
+            burn(cpi_context, 1_000_000)?;
         }
-        user_struct.amount -= 1;
+        else {
+            self.config.allow_list.iter().find(|x| x.user == self.user.key()).ok_or(CustomError::UserNotAllowed)?;
 
-        MintV1CpiBuilder::new(&self.bubblegum_program.to_account_info())
-        .tree_config(&self.tree_config.to_account_info())
-        .leaf_owner(&self.leaf_owner.to_account_info())
-        .leaf_delegate(&self.leaf_owner)
-        .merkle_tree(&mut self.merkle_tree.to_account_info())
-        .payer(&self.user.to_account_info())
-        .tree_creator_or_delegate(&self.config.to_account_info())
-        .log_wrapper(&self.log_wrapper.to_account_info())
-        .compression_program(&self.compression_program.to_account_info())
-        .system_program(&self.system_program.to_account_info())
-        .metadata(
-            MetadataArgs {
-                name,
-                symbol,
-                uri,
-                creators: vec![],
-                seller_fee_basis_points: 0,
-                primary_sale_happened: false,
-                is_mutable: false,
-                edition_nonce: Some(0),
-                uses: None,
-                collection: None,
-                token_program_version: TokenProgramVersion::Original,
-                token_standard: Some(TokenStandard::NonFungible),
+            let user_struct = self.config.allow_list.iter_mut().find(|x| x.user == self.user.key()).unwrap();
+        
+            if user_struct.amount == 0 {
+                return Err(CustomError::AlreadyClaimed.into());
             }
-        )
+            user_struct.amount -= 1;    
+        }
+
+        MintToCollectionV1CpiBuilder::new(&self.bubblegum_program.to_account_info())
+            .tree_config(&self.tree_config.to_account_info())
+            .leaf_owner(&self.leaf_owner.to_account_info())
+            .leaf_delegate(&self.leaf_owner)
+            .merkle_tree(&self.merkle_tree.to_account_info())
+            .payer(&self.user.to_account_info())
+            .tree_creator_or_delegate(&self.config.to_account_info())
+            .collection_authority(&self.config.to_account_info())
+            .collection_authority_record_pda(None)
+            .collection_mint(&self.collection.to_account_info())
+            .collection_metadata(&self.collection_metadata.to_account_info())
+            .collection_edition(&self.collection_edition.to_account_info())
+            .bubblegum_signer(&self.config.to_account_info())
+            .log_wrapper(&self.log_wrapper.to_account_info())
+            .compression_program(&self.compression_program.to_account_info())
+            .token_metadata_program(&self.metadata_program.to_account_info())
+            .system_program(&self.system_program.to_account_info())
+            .metadata(
+                MetadataArgs {
+                    name,
+                    symbol,
+                    uri,
+                    creators: vec![],
+                    seller_fee_basis_points: 0,
+                    primary_sale_happened: false,
+                    is_mutable: false,
+                    edition_nonce: Some(0),
+                    uses: None,
+                    collection: Some(Collection {
+                        verified: true,
+                        key: self.collection.key(),
+                    }),
+                    token_program_version: TokenProgramVersion::Original,
+                    token_standard: Some(TokenStandard::NonFungible),
+                }
+            )
         .invoke_signed(signer_seeds)?;
 
-        self.config.current_supply += 1;
+        Ok(())
+    }
+
+    pub fn close_account(&mut self) -> Result<()> {
         
         Ok(())
     }

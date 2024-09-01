@@ -22,6 +22,7 @@ import {
   keypairIdentity,
   CreateNftOutput,
 } from "@metaplex-foundation/js"
+import { createMint, mintTo, getOrCreateAssociatedTokenAccount, getAssociatedTokenAddressSync } from "@solana/spl-token";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { use } from "chai";
 
@@ -32,11 +33,17 @@ describe("cnft-candy-machine", () => {
 
   const program = anchor.workspace.CnftCandyMachine as Program<CnftCandyMachine>;
 
+  const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
+
   const wallet = provider.wallet as anchor.Wallet;
 
   const config = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("config"), wallet.publicKey.toBuffer()], program.programId);
 
-  const mint_authority = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("authority"), wallet.publicKey.toBuffer()], program.programId);
+  const mintAuthority = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("authority"), wallet.publicKey.toBuffer()], program.programId);
+
+  const mintCollection = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("collection"), config[0].toBuffer()], program.programId);
+
+  let allowMint: anchor.web3.PublicKey;
 
   const allowedOne = Keypair.generate();
   const allowedTwo = Keypair.generate();
@@ -70,12 +77,52 @@ describe("cnft-candy-machine", () => {
     return signature;
   };
 
+  const getMetadata = async (mint: anchor.web3.PublicKey): Promise<anchor.web3.PublicKey> => {
+    return (
+      anchor.web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          mint.toBuffer(),
+        ],
+        TOKEN_METADATA_PROGRAM_ID
+      )
+    )[0];
+  };
+
+  const getMasterEdition = async (mint: anchor.web3.PublicKey): Promise<anchor.web3.PublicKey> => {
+    return (
+      anchor.web3.PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("metadata"),
+          TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+          mint.toBuffer(),
+          Buffer.from("edition"),
+        ],
+        TOKEN_METADATA_PROGRAM_ID
+      )
+    )[0];
+  };
+
   it("Airdrop SOl to wallet", async () => {
     const tx = await provider.connection.requestAirdrop(allowedOne.publicKey, 1000000000).then(confirm);
     console.log("Airdrop done: ", tx);
   });
 
-  it("Create Config Account and Initialize Merkle Tree", async () => {
+  it("Create allow mint", async() => {
+    allowMint = await createMint(provider.connection, wallet.payer, provider.publicKey, provider.publicKey, 6);
+    console.log("\nAllow mint created: ", allowMint.toBase58());
+  });
+
+  it("Mint allow mint", async() => {
+    const destination = (await getOrCreateAssociatedTokenAccount(provider.connection, wallet.payer, allowMint, wallet.publicKey)).address;
+    const tx = await mintTo(provider.connection, wallet.payer, allowMint, destination, wallet.payer, 2_000_000);
+    console.log("\nAllow mint minted to user: ", wallet.publicKey.toBase58());
+    console.log("Current allow mint balance: ", (await provider.connection.getTokenAccountBalance(destination)).value.uiAmount);
+    console.log("Your transaction signature", tx);
+  });
+
+  it("Create Config Account, Initialize Merkle Tree, Create Collection Mint", async () => {
     // Add your test here.
     const allocTreeIx = await createAllocTreeIx(
       provider.connection,
@@ -87,11 +134,12 @@ describe("cnft-candy-machine", () => {
 
     const signature = await sendAndConfirmTransaction(provider.connection, new Transaction().add(allocTreeIx), [wallet.payer, emptyMerkleTree]);
 
-    console.log("Allocated tree", signature);
+    console.log("\nAllocated tree", signature);
 
     const tx = await program.methods.initialize(100, 14, 64)
     .accounts({
       authority: provider.wallet.publicKey,
+      allowMint,
       merkleTree: emptyMerkleTree.publicKey,
       treeConfig: treeConfigPublicKey,
     })
@@ -100,6 +148,17 @@ describe("cnft-candy-machine", () => {
     console.log("Merkle tree initialized");
     console.log("Your transaction signature", tx);
   });
+
+  it("Mint Collection NFT", async() => {
+    const tx = await program.methods.createCollection()
+    .accounts({
+      authority: provider.wallet.publicKey,
+    })
+    .rpc();
+
+    console.log("\nCollection NFT minted");
+    console.log("Your transaction signature", tx);
+  })
 
   it("Add user to allow list", async () => {
   const tx = await program.methods.addAllowList(88)
@@ -146,7 +205,7 @@ describe("cnft-candy-machine", () => {
     allowList.allowList.forEach((user) => console.log("User: ", user.user.toBase58(),"\tAmount: ", user.amount));
   });
 
-  it("Mint cNFT", async() => {
+  it("Mint cNFT with Allow List", async() => {
     console.log("\nMinting cNFT for user: ", allowedOne.publicKey.toBase58());
     console.log("User allowed amount: ", await program.account.config.fetch(config[0]).then((config) => config.allowList.find((user) => user.user.equals(allowedOne.publicKey))?.amount));
 
@@ -154,6 +213,8 @@ describe("cnft-candy-machine", () => {
     .accounts({
       user: allowedOne.publicKey,
       authority: provider.wallet.publicKey,
+      allowMint: null,
+      allowMintAta: null,
       treeConfig: treeConfigPublicKey,
       leafOwner: allowedOne.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
@@ -163,5 +224,27 @@ describe("cnft-candy-machine", () => {
 
     console.log(`\ncNFT minted for user: ${allowedOne.publicKey.toBase58()} with tx: ${tx}`);
     console.log("User allowed amount: ", await program.account.config.fetch(config[0]).then((config) => config.allowList.find((user) => user.user.equals(allowedOne.publicKey))?.amount));
+  })
+
+  it("Mint cNFT with Allow Token", async() => {
+    console.log("\nMinting cNFT for user: ", wallet.publicKey.toBase58());
+
+    const allowMintAta = getAssociatedTokenAddressSync(allowMint, wallet.publicKey);
+    console.log("Allow mint balance before mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
+
+
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+    .accounts({
+      user: wallet.publicKey,
+      authority: provider.wallet.publicKey,
+      allowMint,
+      allowMintAta,
+      treeConfig: treeConfigPublicKey,
+      leafOwner: wallet.publicKey,
+      merkleTree: emptyMerkleTree.publicKey,
+    })
+    .rpc();
+
+    console.log("Allow mint balance after mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
   })
 });

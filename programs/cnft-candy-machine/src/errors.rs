@@ -6,4 +6,6 @@ pub enum CustomError {
     UserNotAllowed,
     #[msg("User Already Claimed")]
     AlreadyClaimed,
+    #[msg("Invalid Allow Mint")]
+    InvalidAllowMint,
 }
