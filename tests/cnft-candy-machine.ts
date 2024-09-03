@@ -251,6 +251,30 @@ describe("cnft-candy-machine", () => {
     console.log("Allow mint balance after mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
   })
 
+  it("Mint cNFT to Public User (Tree is Private)", async() => {
+    try {
+      console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
+
+      const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+      .accounts({
+        user: publicOne.publicKey,
+        authority: provider.wallet.publicKey,
+        allowMint: null,
+        allowMintAta: null,
+        treeConfig: treeConfigPublicKey,
+        leafOwner: publicOne.publicKey,
+        merkleTree: emptyMerkleTree.publicKey,
+      })
+      .signers([publicOne])
+      .rpc();
+
+      console.log("\ncNFT minted for Public User");
+      console.log("Transaction signature:", tx);
+    } catch (error) {
+      console.log("\nError: ", error.error.errorMessage);
+    }
+  })
+
   it("Change Tree Status to Public", async() => {
     console.log("\nCurrent tree status: ", await program.account.config.fetch(config[0]).then((config) => config.status));
 
