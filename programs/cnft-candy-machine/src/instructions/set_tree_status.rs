@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{Config, TreeStatus};
+use crate::state::{
+    Config, 
+    TreeStatus
+};
 
 #[derive(Accounts)]
 pub struct SetTreeStatus<'info> {
