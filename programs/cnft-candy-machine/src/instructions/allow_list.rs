@@ -1,6 +1,9 @@
 use anchor_lang::prelude::*;
 
-use crate::state::{AllowListStruct, Config};
+use crate::state::{
+    AllowListStruct, 
+    Config
+};
 
 #[derive(Accounts)]
 pub struct AllowList<'info> {

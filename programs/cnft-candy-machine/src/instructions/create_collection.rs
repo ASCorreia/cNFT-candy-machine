@@ -1,5 +1,32 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{associated_token::AssociatedToken, metadata::{mpl_token_metadata::{instructions::{CreateMasterEditionV3Cpi, CreateMasterEditionV3CpiAccounts, CreateMasterEditionV3InstructionArgs, CreateMetadataAccountV3Cpi, CreateMetadataAccountV3CpiAccounts, CreateMetadataAccountV3InstructionArgs}, types::{CollectionDetails, Creator, DataV2}}, Metadata}, token::{mint_to, Mint, MintTo, Token, TokenAccount}};
+use anchor_spl::{
+    associated_token::AssociatedToken, 
+    metadata::{
+        mpl_token_metadata::{
+            instructions::{
+                CreateMasterEditionV3Cpi, 
+                CreateMasterEditionV3CpiAccounts, 
+                CreateMasterEditionV3InstructionArgs, 
+                CreateMetadataAccountV3Cpi, 
+                CreateMetadataAccountV3CpiAccounts, 
+                CreateMetadataAccountV3InstructionArgs
+            }, 
+            types::{
+                CollectionDetails, 
+                Creator, 
+                DataV2
+            }
+        }, 
+        Metadata
+    }, 
+    token::{
+        mint_to, 
+        Mint, 
+        MintTo, 
+        Token, 
+        TokenAccount
+    }
+};
 
 use crate::state::Config;
 
@@ -18,7 +45,7 @@ pub struct CreateCollection<'info> {
         bump,
     )]
     pub collection: Account<'info, Mint>,
-    /// CHECK:
+    /// CHECK: Collection NFT Metadata Account to be Initialized by Token Metadata Program
     #[account(
         mut,
         seeds = [
@@ -30,7 +57,7 @@ pub struct CreateCollection<'info> {
         bump,
     )]
     pub collection_metadata: AccountInfo<'info>,
-    /// CHECK:
+    /// CHECK: Collection NFT Master Edition Account to be Initialized by Token Metadata Program
     #[account(
         mut,
         seeds = [
@@ -57,7 +84,7 @@ pub struct CreateCollection<'info> {
 }
 
 impl<'info> CreateCollection<'info> {
-    pub fn create_collection(&mut self) -> Result<()> {
+    pub fn create_collection(&mut self, name: String, symbol: String, uri: String) -> Result<()> {
 
         let metadata = &self.collection_metadata.to_account_info();
         let master_edition = &self.collection_edition.to_account_info();
@@ -106,9 +133,9 @@ impl<'info> CreateCollection<'info> {
             },
             CreateMetadataAccountV3InstructionArgs {
                 data: DataV2 {
-                    name: "DummyCollection".to_owned(),
-                    symbol: "DC".to_owned(),
-                    uri: "".to_owned(),
+                    name,
+                    symbol,
+                    uri,
                     seller_fee_basis_points: 0,
                     creators: Some(creator),
                     collection: None,

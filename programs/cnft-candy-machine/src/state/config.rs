@@ -18,10 +18,11 @@ impl Space for Config {
     const INIT_SPACE: usize = ANCHOR_DESCRIMINATOR_SIZE + PUBKEY_SIZE + VEC_PREFIX_SIZE + (1 + PUBKEY_SIZE) + PUBKEY_SIZE + (U32_SIZE * 2) + TREE_STATUS_SIZE + 1; 
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq)]
 pub enum TreeStatus {
     Inactive,
-    Active,
+    Private,
+    Public,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, InitSpace)]

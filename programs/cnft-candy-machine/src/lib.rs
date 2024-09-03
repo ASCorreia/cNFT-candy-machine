@@ -7,6 +7,7 @@ mod instructions;
 mod constants;
 mod errors;
 
+use state::*;
 use instructions::*;
 use errors::*;
 
@@ -19,8 +20,12 @@ pub mod cnft_candy_machine {
         ctx.accounts.init_tree(max_depth, max_buffer_size)
     }
 
-    pub fn create_collection(ctx: Context<CreateCollection>) -> Result<()> {
-        ctx.accounts.create_collection()
+    pub fn set_tree_status(ctx: Context<SetTreeStatus>, status: TreeStatus) -> Result<()> {
+        ctx.accounts.set_tree_status(status)
+    }
+
+    pub fn create_collection(ctx: Context<CreateCollection>, name: String, symbol: String, uri: String) -> Result<()> {
+        ctx.accounts.create_collection(name, symbol, uri)
     }
 
     pub fn add_allow_list(ctx: Context<AllowList>, amount: u8) -> Result<()> {
