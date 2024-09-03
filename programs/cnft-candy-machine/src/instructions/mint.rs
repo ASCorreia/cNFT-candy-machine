@@ -122,7 +122,7 @@ impl<'info> MintNFT<'info> {
 
                 let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
 
-                burn(cpi_context, 1 * 10_u8.pow(allow_mint.decimals as u32) as u64)?;
+                burn(cpi_context, 1 * 10_u32.pow(allow_mint.decimals as u32) as u64)?;
             }
             else {
                 self.config.allow_list.iter().find(|x| x.user == self.user.key()).ok_or(CustomError::UserNotAllowed)?;

@@ -48,6 +48,7 @@ describe("cnft-candy-machine", () => {
   const allowedOne = Keypair.generate();
   const allowedTwo = Keypair.generate();
   const allowedThree = Keypair.generate();
+  const publicOne = Keypair.generate();
 
   const maxDepthSizePair: ValidDepthSizePair = {
     maxDepth: 14,
@@ -106,7 +107,9 @@ describe("cnft-candy-machine", () => {
 
   it("Airdrop SOl to wallet", async () => {
     const tx = await provider.connection.requestAirdrop(allowedOne.publicKey, 1000000000).then(confirm);
-    console.log("Airdrop done: ", tx);
+    const tx2 = await provider.connection.requestAirdrop(publicOne.publicKey, 1000000000).then(confirm);
+    console.log("\nAirdrop to Allowed User done: ", tx);
+    console.log("Airdrop to Public User done: ", tx2);
   });
 
   it("Create allow mint", async() => {
@@ -150,7 +153,7 @@ describe("cnft-candy-machine", () => {
   });
 
   it("Mint Collection NFT", async() => {
-    const tx = await program.methods.createCollection()
+    const tx = await program.methods.createCollection("Test", "TST", "https://arweave.net/123")
     .accounts({
       authority: provider.wallet.publicKey,
     })
@@ -246,5 +249,39 @@ describe("cnft-candy-machine", () => {
     .rpc();
 
     console.log("Allow mint balance after mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
+  })
+
+  it("Change Tree Status to Public", async() => {
+    console.log("\nCurrent tree status: ", await program.account.config.fetch(config[0]).then((config) => config.status));
+
+    const tx = await program.methods.setTreeStatus({ public: {} })
+    .accounts({
+      authority: provider.wallet.publicKey,
+    })
+    .rpc();
+
+    console.log("\nTree status changed to Public");
+    console.log("Current tree status: ", await program.account.config.fetch(config[0]).then((config) => config.status));
+    console.log("\nTransaction signature:", tx);
+  })
+
+  it("Mint cNFT to Public User (Tree is now public)", async() => {
+    console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
+
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+    .accounts({
+      user: publicOne.publicKey,
+      authority: provider.wallet.publicKey,
+      allowMint: null,
+      allowMintAta: null,
+      treeConfig: treeConfigPublicKey,
+      leafOwner: publicOne.publicKey,
+      merkleTree: emptyMerkleTree.publicKey,
+    })
+    .signers([publicOne])
+    .rpc();
+
+    console.log("\ncNFT minted for Public User");
+    console.log("Transaction signature:", tx);
   })
 });

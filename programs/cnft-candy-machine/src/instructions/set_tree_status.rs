@@ -7,6 +7,7 @@ pub struct SetTreeStatus<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     #[account(
+        mut,
         seeds = [b"config", authority.key().as_ref()],
         bump = config.bump,
     )]
