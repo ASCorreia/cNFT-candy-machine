@@ -7,9 +7,12 @@ use anchor_spl::{
         Token
     }
 };
-use crate::state::{
-    Config, 
-    TreeStatus
+use crate::{
+    state::{
+        Config, 
+        TreeStatus
+    }, 
+    CustomError
 };
 use mpl_bubblegum::{
     instructions::CreateTreeConfigCpiBuilder, 
@@ -63,7 +66,7 @@ pub struct Initialize<'info> {
 }
 
 impl<'info> Initialize<'info> {
-    pub fn init_config(&mut self, total_supply: u32, price_sol: u64, price_spl: Option<u64>, spl_address: Option<Pubkey>, bumps: &InitializeBumps) -> Result<()> {
+    pub fn init_config(&mut self, total_supply: u32, price_sol: Option<u64>, price_spl: Option<u64>, spl_address: Option<Pubkey>, bumps: &InitializeBumps) -> Result<()> {
         let allow_mint = match self.allow_mint.clone() {
             Some(value) => Some(value.key()),
             None => None,
@@ -71,7 +74,10 @@ impl<'info> Initialize<'info> {
 
         let (price_spl, spl_address) = match price_spl.is_some() && spl_address.is_some() {
             true => (price_spl, spl_address),
-            false => (None, None),
+            false => {
+                require!(price_spl.is_none() && spl_address.is_none(), CustomError::InvalidSPLSettings);
+                (None, None)
+            },
         };
 
         self.config.set_inner(

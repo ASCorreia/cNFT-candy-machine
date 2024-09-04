@@ -10,4 +10,6 @@ pub enum CustomError {
     InvalidAllowMint,
     #[msg("Candy Machine is not active")]
     CandyMachineInactive,
+    #[msg("Inavalid SPL Settings")]
+    InvalidSPLSettings,
 }

@@ -15,7 +15,7 @@ use errors::*;
 pub mod cnft_candy_machine {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, total_supply: u32, price_sol: u64, price_spl: Option<u64>, spl_address: Option<Pubkey>, max_depth: u32, max_buffer_size: u32) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, total_supply: u32, price_sol: Option<u64>, price_spl: Option<u64>, spl_address: Option<Pubkey>, max_depth: u32, max_buffer_size: u32) -> Result<()> {
         ctx.accounts.init_config(total_supply, price_sol, price_spl, spl_address, &ctx.bumps)?;
         ctx.accounts.init_tree(max_depth, max_buffer_size)
     }

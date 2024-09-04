@@ -10,7 +10,7 @@ pub struct Config {
     pub collection: Pubkey,
     pub total_supply: u32,
     pub current_supply: u32,
-    pub price_sol: u64,
+    pub price_sol: Option<u64>,
     pub price_spl: Option<u64>,
     pub spl_address: Option<Pubkey>,
     pub status: TreeStatus,
@@ -18,7 +18,7 @@ pub struct Config {
 }
 
 impl Space for Config {
-    const INIT_SPACE: usize = ANCHOR_DESCRIMINATOR_SIZE + PUBKEY_SIZE + VEC_PREFIX_SIZE + (1 + PUBKEY_SIZE) + PUBKEY_SIZE + (U32_SIZE * 2) + 8 + (1 + 8) + (1 + PUBKEY_SIZE) + TREE_STATUS_SIZE + 1; 
+    const INIT_SPACE: usize = ANCHOR_DESCRIMINATOR_SIZE + PUBKEY_SIZE + VEC_PREFIX_SIZE + (1 + PUBKEY_SIZE) + PUBKEY_SIZE + (U32_SIZE * 2) + (1 + 8) + (1 + 8) + (1 + PUBKEY_SIZE) + TREE_STATUS_SIZE + 1; 
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq)]

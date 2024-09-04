@@ -186,11 +186,13 @@ impl<'info> MintNFT<'info> {
         .invoke_signed(signer_seeds)?;
 
         match pay_sol {
-            true => if self.config.price_sol != 0 {
-                self.transfer_sol()?;
+            true => match self.config.price_sol.is_some() {
+                true => self.transfer_sol()?,
+                false => require!(self.config.price_spl.is_none(), CustomError::InvalidSPLSettings),
             },
-            false => if self.config.price_spl.is_some() && self.config.spl_address.is_some() {
-                self.transfer_spl()?;
+            false => match self.config.price_spl.is_some() && self.config.spl_address.is_some() {
+                true => self.transfer_spl()?,
+                false => require!(self.config.price_sol.is_none(), CustomError::InvalidSPLSettings),
             },
         }
 
@@ -211,7 +213,7 @@ impl<'info> MintNFT<'info> {
 
         let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
 
-        transfer(cpi_context, self.config.price_sol)
+        transfer(cpi_context, self.config.price_sol.unwrap())
     }
 
     pub fn transfer_spl(&mut self) -> Result<()> {
