@@ -63,10 +63,15 @@ pub struct Initialize<'info> {
 }
 
 impl<'info> Initialize<'info> {
-    pub fn init_config(&mut self, total_supply: u32, bumps: &InitializeBumps) -> Result<()> {
+    pub fn init_config(&mut self, total_supply: u32, price_sol: u64, price_spl: Option<u64>, spl_address: Option<Pubkey>, bumps: &InitializeBumps) -> Result<()> {
         let allow_mint = match self.allow_mint.clone() {
             Some(value) => Some(value.key()),
             None => None,
+        };
+
+        let (price_spl, spl_address) = match price_spl.is_some() && spl_address.is_some() {
+            true => (price_spl, spl_address),
+            false => (None, None),
         };
 
         self.config.set_inner(
@@ -77,6 +82,9 @@ impl<'info> Initialize<'info> {
                 collection: self.collection.key(),
                 total_supply,
                 current_supply: 0,
+                price_sol,
+                price_spl,
+                spl_address,
                 status: TreeStatus::Private,
                 bump: bumps.config, 
             },

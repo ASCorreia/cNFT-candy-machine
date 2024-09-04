@@ -5,6 +5,7 @@ import {
   AccountMeta,
   Connection,
   Keypair,
+  LAMPORTS_PER_SOL,
   PublicKey,
   Transaction,
   clusterApiUrl,
@@ -106,8 +107,8 @@ describe("cnft-candy-machine", () => {
   };
 
   it("Airdrop SOl to wallet", async () => {
-    const tx = await provider.connection.requestAirdrop(allowedOne.publicKey, 1000000000).then(confirm);
-    const tx2 = await provider.connection.requestAirdrop(publicOne.publicKey, 1000000000).then(confirm);
+    const tx = await provider.connection.requestAirdrop(allowedOne.publicKey, 10 * LAMPORTS_PER_SOL).then(confirm);
+    const tx2 = await provider.connection.requestAirdrop(publicOne.publicKey, 10 * LAMPORTS_PER_SOL).then(confirm);
     console.log("\nAirdrop to Allowed User done: ", tx);
     console.log("Airdrop to Public User done: ", tx2);
   });
@@ -139,7 +140,7 @@ describe("cnft-candy-machine", () => {
 
     console.log("\nAllocated tree", signature);
 
-    const tx = await program.methods.initialize(100, 14, 64)
+    const tx = await program.methods.initialize(100, new anchor.BN(0.2 * LAMPORTS_PER_SOL), null, null, 14, 64)
     .accounts({
       authority: provider.wallet.publicKey,
       allowMint,
@@ -212,7 +213,7 @@ describe("cnft-candy-machine", () => {
     console.log("\nMinting cNFT for user: ", allowedOne.publicKey.toBase58());
     console.log("User allowed amount: ", await program.account.config.fetch(config[0]).then((config) => config.allowList.find((user) => user.user.equals(allowedOne.publicKey))?.amount));
 
-    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", true)
     .accounts({
       user: allowedOne.publicKey,
       authority: provider.wallet.publicKey,
@@ -236,7 +237,7 @@ describe("cnft-candy-machine", () => {
     console.log("Allow mint balance before mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
 
 
-    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", true)
     .accounts({
       user: wallet.publicKey,
       authority: provider.wallet.publicKey,
@@ -255,7 +256,7 @@ describe("cnft-candy-machine", () => {
     try {
       console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
 
-      const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+      const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", true)
       .accounts({
         user: publicOne.publicKey,
         authority: provider.wallet.publicKey,
@@ -292,7 +293,7 @@ describe("cnft-candy-machine", () => {
   it("Mint cNFT to Public User (Tree is now public)", async() => {
     console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
 
-    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123")
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", true)
     .accounts({
       user: publicOne.publicKey,
       authority: provider.wallet.publicKey,

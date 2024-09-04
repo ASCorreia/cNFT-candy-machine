@@ -15,8 +15,8 @@ use errors::*;
 pub mod cnft_candy_machine {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, total_supply: u32, max_depth: u32, max_buffer_size: u32) -> Result<()> {
-        ctx.accounts.init_config(total_supply, &ctx.bumps)?;
+    pub fn initialize(ctx: Context<Initialize>, total_supply: u32, price_sol: u64, price_spl: Option<u64>, spl_address: Option<Pubkey>, max_depth: u32, max_buffer_size: u32) -> Result<()> {
+        ctx.accounts.init_config(total_supply, price_sol, price_spl, spl_address, &ctx.bumps)?;
         ctx.accounts.init_tree(max_depth, max_buffer_size)
     }
 
@@ -32,7 +32,7 @@ pub mod cnft_candy_machine {
         ctx.accounts.add(amount)
     }
 
-    pub fn mint(ctx: Context<MintNFT>, name: String, symbol: String, uri: String) -> Result<()> {
-        ctx.accounts.mint_cnft(name, symbol, uri)
+    pub fn mint(ctx: Context<MintNFT>, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
+        ctx.accounts.mint_cnft(name, symbol, uri, pay_sol)
     }
 }

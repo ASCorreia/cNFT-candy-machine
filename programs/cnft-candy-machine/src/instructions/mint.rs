@@ -1,5 +1,9 @@
 use anchor_lang::prelude::*;
 
+use anchor_lang::system_program::{
+    Transfer, 
+    transfer
+};
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::metadata::{
     MasterEditionAccount, 
@@ -103,7 +107,7 @@ pub struct MintNFT<'info> {
 }
 
 impl<'info> MintNFT<'info> {
-    pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String) -> Result<()> {
+    pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
 
         require!(self.config.status != TreeStatus::Inactive, CustomError::CandyMachineInactive);
 
@@ -181,11 +185,46 @@ impl<'info> MintNFT<'info> {
             )
         .invoke_signed(signer_seeds)?;
 
+        match pay_sol {
+            true => if self.config.price_sol != 0 {
+                self.transfer_sol()?;
+            },
+            false => if self.config.price_spl.is_some() && self.config.spl_address.is_some() {
+                self.transfer_spl()?;
+            },
+        }
+
         if self.config.current_supply == self.config.total_supply {
             self.close_account()?;
         }
 
         Ok(())
+    }
+
+    pub fn transfer_sol(&mut self) -> Result<()> {
+        let cpi_program = self.system_program.to_account_info();
+
+        let cpi_accounts = Transfer {
+            from: self.user.to_account_info(),
+            to: self.authority.to_account_info(),
+        };
+
+        let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+
+        transfer(cpi_context, self.config.price_sol)
+    }
+
+    pub fn transfer_spl(&mut self) -> Result<()> {
+        let cpi_program = self.token_program.to_account_info();
+
+        let cpi_accounts = Transfer {
+            from: self.user.to_account_info(),
+            to: self.authority.to_account_info(),
+        };
+
+        let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
+
+        transfer(cpi_context, self.config.price_spl.unwrap())
     }
 
     pub fn close_account(&mut self) -> Result<()> {
