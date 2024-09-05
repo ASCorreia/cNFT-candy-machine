@@ -8,6 +8,8 @@ pub enum CustomError {
     AlreadyClaimed,
     #[msg("Invalid Allow Mint")]
     InvalidAllowMint,
+    #[msg("Invalid Allow Mint ATA")]
+    InvalidAllowMintATA,
     #[msg("Candy Machine is not active")]
     CandyMachineInactive,
     #[msg("Inavalid SPL Settings")]

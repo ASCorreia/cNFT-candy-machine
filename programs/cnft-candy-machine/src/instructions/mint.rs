@@ -4,7 +4,7 @@ use anchor_lang::system_program::{
     Transfer, 
     transfer
 };
-use anchor_spl::associated_token::AssociatedToken;
+use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
 use anchor_spl::metadata::{
     MasterEditionAccount, 
     Metadata, 
@@ -115,6 +115,9 @@ impl<'info> MintNFT<'info> {
             if let (Some(allow_mint), Some(allow_mint_ata)) = (&self.allow_mint, &self.allow_mint_ata) {
 
                 require!(allow_mint.key() == self.config.allow_mint.unwrap(), CustomError::InvalidAllowMint);
+
+                let ata_address = get_associated_token_address(&self.allow_mint_ata.as_ref().unwrap().key(), &allow_mint.key());
+                require!(ata_address == self.allow_mint_ata.as_ref().unwrap().key(), CustomError::InvalidAllowMintATA);
 
                 let cpi_program = self.token_program.to_account_info();
 
