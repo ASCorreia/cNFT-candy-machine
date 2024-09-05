@@ -67,20 +67,25 @@ pub struct Initialize<'info> {
 
 impl<'info> Initialize<'info> {
     pub fn init_config(&mut self, total_supply: u32, price_sol: Option<u64>, price_spl: Option<u64>, spl_address: Option<Pubkey>, bumps: &InitializeBumps) -> Result<()> {
+        // Check if there is a mint in the allow mint account and return the key or None
         let allow_mint = match self.allow_mint.clone() {
             Some(value) => Some(value.key()),
             None => None,
         };
 
+        // Check if there is a price and address for the SPL token and return the key or None
         let (price_spl, spl_address) = match price_spl.is_some() && spl_address.is_some() {
             true => (price_spl, spl_address),
             false => {
+                // If one is true and the other is false, return an error
                 require!(price_spl.is_none() && spl_address.is_none(), CustomError::InvalidSPLSettings);
+                // If both are false, return None
                 (None, None)
             },
         };
 
         self.config.set_inner(
+            // Initialize the config account
             Config {
                 authority: self.authority.key(),
                 allow_list: vec![],
@@ -99,6 +104,7 @@ impl<'info> Initialize<'info> {
     }
 
     pub fn init_tree(&mut self, max_depth: u32, max_buffer_size: u32) -> Result<()> {
+        // Create the seeds for the CPI call
         let seeds = &[
             &b"config"[..], 
             &self.authority.key.as_ref(),
@@ -106,6 +112,7 @@ impl<'info> Initialize<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
         
+        // Accounts for CPI calls
         let bubblegum_program = &self.bubblegum_program.to_account_info();
         let tree_config = &self.tree_config.to_account_info();
         let merkle_tree = &self.merkle_tree.to_account_info();
@@ -115,6 +122,7 @@ impl<'info> Initialize<'info> {
         let compression_program = &self.compression_program.to_account_info();
         let system_program = &self.system_program.to_account_info();
 
+        // CPI call to create the tree config
         CreateTreeConfigCpiBuilder::new(bubblegum_program)
             .tree_config(tree_config)
             .merkle_tree(merkle_tree)

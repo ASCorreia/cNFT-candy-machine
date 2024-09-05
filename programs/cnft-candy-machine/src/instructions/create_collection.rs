@@ -86,6 +86,7 @@ pub struct CreateCollection<'info> {
 impl<'info> CreateCollection<'info> {
     pub fn create_collection(&mut self, name: String, symbol: String, uri: String) -> Result<()> {
 
+        // Accounts for the CPI calls
         let metadata = &self.collection_metadata.to_account_info();
         let master_edition = &self.collection_edition.to_account_info();
         let mint = &self.collection.to_account_info();
@@ -95,6 +96,7 @@ impl<'info> CreateCollection<'info> {
         let spl_token_program = &self.token_program.to_account_info();
         let spl_metadata_program = &self.metadata_program.to_account_info();
 
+        // Signer seeds for CPI calls
         let seeds = &[
             &b"config"[..],
             &self.authority.key.as_ref(),
@@ -102,16 +104,21 @@ impl<'info> CreateCollection<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
+        // CPI program and accounts for minting the Collection NFT
         let cpi_program = self.token_program.to_account_info();
         let cpi_accounts = MintTo {
             mint: self.collection.to_account_info(),
             to: self.collection_ata.to_account_info(),
             authority: self.config.to_account_info(),
         };
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-        mint_to(cpi_ctx, 1)?;
-        msg!("Collection NFT minted!");
 
+        // CPI Context for minting the Collection NFT
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+
+        // Mint the Collection NFT
+        mint_to(cpi_ctx, 1)?;
+
+        // Create the creator array for the Collection NFT
         let creator = vec![
             Creator {
                 address: self.config.key().clone(),
@@ -120,7 +127,8 @@ impl<'info> CreateCollection<'info> {
             },
         ];
         
-        let metadata_account = CreateMetadataAccountV3Cpi::new(
+        // Create the Collection NFT Metadata
+        CreateMetadataAccountV3Cpi::new(
             spl_metadata_program, 
             CreateMetadataAccountV3CpiAccounts {
                 metadata,
@@ -148,11 +156,10 @@ impl<'info> CreateCollection<'info> {
                     }
                 )
             }
-        );
-        metadata_account.invoke_signed(signer_seeds)?;
-        msg!("Metadata Account created!");
+        ).invoke_signed(signer_seeds)?;
 
-        let master_edition_account = CreateMasterEditionV3Cpi::new(
+        // Create the Collection NFT Master Edition
+        CreateMasterEditionV3Cpi::new(
             spl_metadata_program,
             CreateMasterEditionV3CpiAccounts {
                 edition: master_edition,
@@ -168,9 +175,7 @@ impl<'info> CreateCollection<'info> {
             CreateMasterEditionV3InstructionArgs {
                 max_supply: Some(0),
             }
-        );
-        master_edition_account.invoke_signed(signer_seeds)?;
-        msg!("Master Edition Account created");
+        ).invoke_signed(signer_seeds)?;
         
         Ok(())
     }

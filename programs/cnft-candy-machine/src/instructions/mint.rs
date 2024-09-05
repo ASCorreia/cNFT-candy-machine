@@ -4,7 +4,10 @@ use anchor_lang::system_program::{
     Transfer, 
     transfer
 };
-use anchor_spl::associated_token::{get_associated_token_address, AssociatedToken};
+use anchor_spl::associated_token::{
+    get_associated_token_address, 
+    AssociatedToken
+};
 use anchor_spl::metadata::{
     MasterEditionAccount, 
     Metadata, 
@@ -109,40 +112,46 @@ pub struct MintNFT<'info> {
 impl<'info> MintNFT<'info> {
     pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
 
+        // Check if the Candy Machine is active
         require!(self.config.status != TreeStatus::Inactive, CustomError::CandyMachineInactive);
 
+        // Check if the Candy Machine is private
         if self.config.status != TreeStatus::Public {
+            // Check if there is an Allow Mint account and Allow Mint ATA account
             if let (Some(allow_mint), Some(allow_mint_ata)) = (&self.allow_mint, &self.allow_mint_ata) {
 
+                // Check if the Allow Mint account is the same as the one in the config
                 require!(allow_mint.key() == self.config.allow_mint.unwrap(), CustomError::InvalidAllowMint);
 
-                let ata_address = get_associated_token_address(&self.allow_mint_ata.as_ref().unwrap().key(), &allow_mint.key());
+                // Check if the Allow Mint ATA account belongs to the user
+                let ata_address = get_associated_token_address(&self.user.key(), &allow_mint.key());
                 require!(ata_address == self.allow_mint_ata.as_ref().unwrap().key(), CustomError::InvalidAllowMintATA);
 
+                // Burn the Allow Mint token
                 let cpi_program = self.token_program.to_account_info();
-
                 let cpi_accounts = Burn {
                     mint: allow_mint.to_account_info(),
                     from: allow_mint_ata.to_account_info(),
                     authority: self.user.to_account_info(),
                 };
-
                 let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-
                 burn(cpi_context, 1 * 10_u32.pow(allow_mint.decimals as u32) as u64)?;
             }
             else {
+                // If the Candy Machine is private and there is no Allow Mint account, check if the user is in the Allow List
                 self.config.allow_list.iter().find(|x| x.user == self.user.key()).ok_or(CustomError::UserNotAllowed)?;
 
-                let user_struct = self.config.allow_list.iter_mut().find(|x| x.user == self.user.key()).unwrap();
-            
+                // Check if the user has already claimed
+                let user_struct = self.config.allow_list.iter_mut().find(|x| x.user == self.user.key()).unwrap();      
                 if user_struct.amount == 0 {
                     return Err(CustomError::AlreadyClaimed.into());
                 }
+                // Decrease the allowed amount of the user
                 user_struct.amount -= 1;    
             }
         }
 
+        // Create signer seeds for the CPI calls
         let seeds = &[
             &b"config"[..], 
             &self.authority.key.as_ref(),
@@ -150,6 +159,7 @@ impl<'info> MintNFT<'info> {
         ];
         let signer_seeds = &[&seeds[..]];
 
+        // CPI call to the Bubblegum Program to mint the cNFT
         MintToCollectionV1CpiBuilder::new(&self.bubblegum_program.to_account_info())
             .tree_config(&self.tree_config.to_account_info())
             .leaf_owner(&self.leaf_owner.to_account_info())
@@ -188,17 +198,26 @@ impl<'info> MintNFT<'info> {
             )
         .invoke_signed(signer_seeds)?;
 
+        // Check if the user wants to pay in SOL or SPL and if there is a price in SOL or SPL. Return an error if the settings are invalid
         match pay_sol {
+            // If the user wants to pay in SOL, check if there is a price in SOL. 
+            // If there is, transfer the SOL to the authority, otherwise check if there is a price in SPL and return an error if there is
             true => match self.config.price_sol.is_some() {
                 true => self.transfer_sol()?,
                 false => require!(self.config.price_spl.is_none(), CustomError::InvalidSPLSettings),
             },
+            // If the user wants to pay in SPL, check if there is a price in SPL and an SPL address. 
+            // If there is, transfer the SPL to the authority, otherwise check if there is a price in SOL and return an error if there is
             false => match self.config.price_spl.is_some() && self.config.spl_address.is_some() {
                 true => self.transfer_spl()?,
                 false => require!(self.config.price_sol.is_none(), CustomError::InvalidSPLSettings),
             },
         }
 
+        // Increase the current supply
+        self.config.current_supply += 1;
+
+        // If the total supply is equal to the current supply, close the account
         if self.config.current_supply == self.config.total_supply {
             self.close_account()?;
         }
@@ -207,6 +226,7 @@ impl<'info> MintNFT<'info> {
     }
 
     pub fn transfer_sol(&mut self) -> Result<()> {
+        // Transfer the SOL to the authority
         let cpi_program = self.system_program.to_account_info();
 
         let cpi_accounts = Transfer {
@@ -220,6 +240,7 @@ impl<'info> MintNFT<'info> {
     }
 
     pub fn transfer_spl(&mut self) -> Result<()> {
+        // Transfer the SPL to the authority ATA
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = Transfer {
@@ -233,7 +254,7 @@ impl<'info> MintNFT<'info> {
     }
 
     pub fn close_account(&mut self) -> Result<()> {
-
+        // Close the config account and transfer the rent lamports to the authority
         **self.authority.lamports.borrow_mut() = self.authority.lamports().checked_add(self.config.to_account_info().lamports()).unwrap();
 
         **self.config.to_account_info().lamports.borrow_mut() = 0;

@@ -19,6 +19,7 @@ pub struct SetTreeStatus<'info> {
 
 impl<'info> SetTreeStatus<'info> {
     pub fn set_tree_status(&mut self, status: TreeStatus) -> Result<()> {
+        // Set the tree status
         self.config.status = status;
         Ok(())
     }

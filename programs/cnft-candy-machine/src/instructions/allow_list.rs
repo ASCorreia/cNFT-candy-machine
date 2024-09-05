@@ -24,6 +24,7 @@ pub struct AllowList<'info> {
 
 impl<'info> AllowList<'info> {
     pub fn add(&mut self, amount: u8) -> Result<()> {
+        // Add the user to the allow list
         self.config.allow_list.push(
             AllowListStruct{
                 user: self.user.key(),
