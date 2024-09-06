@@ -14,4 +14,6 @@ pub enum CustomError {
     CandyMachineInactive,
     #[msg("Inavalid SPL Settings")]
     InvalidSPLSettings,
+    #[msg("Invalid number of remaining accounts")]
+    InvalidRemainingAccounts,
 }

@@ -32,7 +32,7 @@ pub mod cnft_candy_machine {
         ctx.accounts.add(amount)
     }
 
-    pub fn mint(ctx: Context<MintNFT>, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
-        ctx.accounts.mint_cnft(name, symbol, uri, pay_sol)
+    pub fn mint<'info>(ctx: Context<'_, '_, '_, 'info, MintNFT<'info>>, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
+        ctx.accounts.mint_cnft(name, symbol, uri, pay_sol, ctx.remaining_accounts)
     }
 }

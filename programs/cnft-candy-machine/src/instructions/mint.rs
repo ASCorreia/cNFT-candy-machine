@@ -110,13 +110,13 @@ pub struct MintNFT<'info> {
 }
 
 impl<'info> MintNFT<'info> {
-    pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {
+    pub fn mint_cnft(&mut self, name: String, symbol: String, uri: String, pay_sol: bool, remaining_accounts: &[AccountInfo<'info>]) -> Result<()> {
 
         // Check if the Candy Machine is active
         require!(self.config.status != TreeStatus::Inactive, CustomError::CandyMachineInactive);
 
         // Check if the Candy Machine is private
-        if self.config.status != TreeStatus::Public {
+        if self.config.status == TreeStatus::Private {
             // Check if there is an Allow Mint account and Allow Mint ATA account
             if let (Some(allow_mint), Some(allow_mint_ata)) = (&self.allow_mint, &self.allow_mint_ata) {
 
@@ -209,7 +209,7 @@ impl<'info> MintNFT<'info> {
             // If the user wants to pay in SPL, check if there is a price in SPL and an SPL address. 
             // If there is, transfer the SPL to the authority, otherwise check if there is a price in SOL and return an error if there is
             false => match self.config.price_spl.is_some() && self.config.spl_address.is_some() {
-                true => self.transfer_spl()?,
+                true => self.transfer_spl(remaining_accounts)?,
                 false => require!(self.config.price_sol.is_none(), CustomError::InvalidSPLSettings),
             },
         }
@@ -239,13 +239,32 @@ impl<'info> MintNFT<'info> {
         transfer(cpi_context, self.config.price_sol.unwrap())
     }
 
-    pub fn transfer_spl(&mut self) -> Result<()> {
+    pub fn transfer_spl(&mut self, remaining_accounts: &[AccountInfo<'info>]) -> Result<()> {
+        // Check if there are 2 remaining accounts
+        if remaining_accounts.len() != 2 {
+            return Err(CustomError::InvalidRemainingAccounts.into());
+        }
+
+        // Get the expected ATA accounts
+        let expected_from_ata = get_associated_token_address(&self.user.key, &self.allow_mint.as_ref().unwrap().key());
+        let expected_to_ata = get_associated_token_address(&self.authority.key, &self.allow_mint.as_ref().unwrap().key());
+
+        // Check if the first remaining accounts are is the expected source ATA
+        let mut data = remaining_accounts[0].try_borrow_mut_data()?;
+        let _from_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
+        require_keys_eq!(remaining_accounts[0].key(), expected_from_ata, CustomError::InvalidRemainingAccounts);
+
+        // Check if the second remaining account is the expected destination ATA
+        data = remaining_accounts[1].try_borrow_mut_data()?;
+        let _to_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
+        require_keys_eq!(remaining_accounts[1].key(), expected_to_ata, CustomError::InvalidRemainingAccounts);
+
         // Transfer the SPL to the authority ATA
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = Transfer {
-            from: self.user.to_account_info(),
-            to: self.authority.to_account_info(),
+            from: remaining_accounts[0].to_account_info(),
+            to: remaining_accounts[1].to_account_info(),
         };
 
         let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
@@ -256,7 +275,6 @@ impl<'info> MintNFT<'info> {
     pub fn close_account(&mut self) -> Result<()> {
         // Close the config account and transfer the rent lamports to the authority
         **self.authority.lamports.borrow_mut() = self.authority.lamports().checked_add(self.config.to_account_info().lamports()).unwrap();
-
         **self.config.to_account_info().lamports.borrow_mut() = 0;
         
         Ok(())
