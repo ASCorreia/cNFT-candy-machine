@@ -45,6 +45,7 @@ describe("cnft-candy-machine", () => {
   const mintCollection = anchor.web3.PublicKey.findProgramAddressSync([Buffer.from("collection"), config[0].toBuffer()], program.programId);
 
   let allowMint: anchor.web3.PublicKey;
+  let paymentMint: anchor.web3.PublicKey;
 
   const allowedOne = Keypair.generate();
   const allowedTwo = Keypair.generate();
@@ -113,6 +114,19 @@ describe("cnft-candy-machine", () => {
     console.log("Airdrop to Public User done: ", tx2);
   });
 
+  it("Create payment mint", async() => {
+    paymentMint = await createMint(provider.connection, wallet.payer, provider.publicKey, provider.publicKey, 6);
+    console.log("\nPayment mint created: ", paymentMint.toBase58());
+  });
+
+  it("Mint payment mint", async() => {
+    const destination = (await getOrCreateAssociatedTokenAccount(provider.connection, wallet.payer, paymentMint, publicOne.publicKey)).address;
+    const tx = await mintTo(provider.connection, wallet.payer, paymentMint, destination, wallet.payer, 100_000_000);
+    console.log("\nPayment mint minted to user: ", wallet.publicKey.toBase58());
+    console.log("Current payment mint balance: ", (await provider.connection.getTokenAccountBalance(destination)).value.uiAmount);
+    console.log("Your transaction signature", tx);
+  });
+
   it("Create allow mint", async() => {
     allowMint = await createMint(provider.connection, wallet.payer, provider.publicKey, provider.publicKey, 6);
     console.log("\nAllow mint created: ", allowMint.toBase58());
@@ -120,7 +134,7 @@ describe("cnft-candy-machine", () => {
 
   it("Mint allow mint", async() => {
     const destination = (await getOrCreateAssociatedTokenAccount(provider.connection, wallet.payer, allowMint, wallet.publicKey)).address;
-    const tx = await mintTo(provider.connection, wallet.payer, allowMint, destination, wallet.payer, 2_000_000);
+    const tx = await mintTo(provider.connection, wallet.payer, allowMint, destination, wallet.payer, 20_000_000);
     console.log("\nAllow mint minted to user: ", wallet.publicKey.toBase58());
     console.log("Current allow mint balance: ", (await provider.connection.getTokenAccountBalance(destination)).value.uiAmount);
     console.log("Your transaction signature", tx);
@@ -140,7 +154,7 @@ describe("cnft-candy-machine", () => {
 
     console.log("\nAllocated tree", signature);
 
-    const tx = await program.methods.initialize(100, new anchor.BN(0.2 * LAMPORTS_PER_SOL), null, null, 14, 64)
+    const tx = await program.methods.initialize(100, new anchor.BN(0.2 * LAMPORTS_PER_SOL), new anchor.BN(5_000_000), paymentMint, 14, 64)
     .accounts({
       authority: provider.wallet.publicKey,
       allowMint,
@@ -209,7 +223,7 @@ describe("cnft-candy-machine", () => {
     allowList.allowList.forEach((user) => console.log("User: ", user.user.toBase58(),"\tAmount: ", user.amount));
   });
 
-  it("Mint cNFT with Allow List", async() => {
+  it("Mint cNFT with Allow List - Pay with SOL", async() => {
     console.log("\nMinting cNFT for user: ", allowedOne.publicKey.toBase58());
     console.log("User allowed amount: ", await program.account.config.fetch(config[0]).then((config) => config.allowList.find((user) => user.user.equals(allowedOne.publicKey))?.amount));
 
@@ -230,7 +244,7 @@ describe("cnft-candy-machine", () => {
     console.log("User allowed amount: ", await program.account.config.fetch(config[0]).then((config) => config.allowList.find((user) => user.user.equals(allowedOne.publicKey))?.amount));
   })
 
-  it("Mint cNFT with Allow Token", async() => {
+  it("Mint cNFT with Allow Token - Pay with SOL", async() => {
     console.log("\nMinting cNFT for user: ", wallet.publicKey.toBase58());
 
     const allowMintAta = getAssociatedTokenAddressSync(allowMint, wallet.publicKey);
@@ -252,7 +266,7 @@ describe("cnft-candy-machine", () => {
     console.log("Allow mint balance after mint: ", (await provider.connection.getTokenAccountBalance(allowMintAta)).value.uiAmount);
   })
 
-  it("Mint cNFT to Public User (Tree is Private)", async() => {
+  it("Mint cNFT to Public User (Tree is Private, so test shall fail) - Pay with SOL", async() => {
     try {
       console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
 
@@ -290,7 +304,7 @@ describe("cnft-candy-machine", () => {
     console.log("\nTransaction signature:", tx);
   })
 
-  it("Mint cNFT to Public User (Tree is now public)", async() => {
+  it("Mint cNFT to Public User (Tree is now public) - Pay with SOL", async() => {
     console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
 
     const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", true)
@@ -303,6 +317,37 @@ describe("cnft-candy-machine", () => {
       leafOwner: publicOne.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
     })
+    .signers([publicOne])
+    .rpc();
+
+    console.log("\ncNFT minted for Public User");
+    console.log("Transaction signature:", tx);
+  })
+
+  xit("Mint cNFT to Public User (Tree is now public) - Pay with SPL", async() => {
+    console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
+
+    const source = await getOrCreateAssociatedTokenAccount(provider.connection, publicOne, paymentMint, publicOne.publicKey);
+    console.log("Source address: ", source.address.toBase58());
+    const destination = await getOrCreateAssociatedTokenAccount(provider.connection, wallet.payer, paymentMint, provider.wallet.publicKey);
+    console.log("Destination address: ", destination.address.toBase58());
+
+    console.log("Payment Mint", paymentMint.toBase58());
+
+    const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", false)
+    .accounts({
+      user: publicOne.publicKey,
+      authority: provider.wallet.publicKey,
+      allowMint: null,
+      allowMintAta: null,
+      treeConfig: treeConfigPublicKey,
+      leafOwner: publicOne.publicKey,
+      merkleTree: emptyMerkleTree.publicKey,
+    })
+    .remainingAccounts([
+      { pubkey: source.address, isWritable: true, isSigner: false },
+      { pubkey: destination.address, isWritable: true, isSigner: false },
+    ])
     .signers([publicOne])
     .rpc();
 

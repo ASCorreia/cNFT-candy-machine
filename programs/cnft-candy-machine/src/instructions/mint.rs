@@ -80,13 +80,6 @@ pub struct MintNFT<'info> {
         bump,
     )]
     pub collection_edition: Account<'info, MasterEditionAccount>,
-    #[account(
-        init,
-        payer = user,
-        associated_token::mint = collection,
-        associated_token::authority = user,
-    )]
-    pub destination: Box<Account<'info, TokenAccount>>,
     /// CHECK: Tree Config account that will be checked by the Bubblegum Program
     #[account(mut)]
     pub tree_config: UncheckedAccount<'info>,
@@ -246,20 +239,20 @@ impl<'info> MintNFT<'info> {
         }
 
         // Get the expected ATA accounts
-        let expected_from_ata = get_associated_token_address(&self.user.key, &self.allow_mint.as_ref().unwrap().key());
-        let expected_to_ata = get_associated_token_address(&self.authority.key, &self.allow_mint.as_ref().unwrap().key());
+        let expected_from_ata = get_associated_token_address(&self.user.key, &self.config.spl_address.as_ref().unwrap());
+        let expected_to_ata = get_associated_token_address(&self.authority.key, &self.config.spl_address.as_ref().unwrap());
 
         // Check if the first remaining accounts are is the expected source ATA
-        let mut data = remaining_accounts[0].try_borrow_mut_data()?;
-        let _from_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
-        require_keys_eq!(remaining_accounts[0].key(), expected_from_ata, CustomError::InvalidRemainingAccounts);
+        // let mut data = remaining_accounts[0].try_borrow_mut_data()?;
+        // let _from_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
+        require_keys_eq!(remaining_accounts[0].key(), expected_from_ata, CustomError::InvalidSourceRemainingAccount);
 
         // Check if the second remaining account is the expected destination ATA
-        data = remaining_accounts[1].try_borrow_mut_data()?;
-        let _to_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
-        require_keys_eq!(remaining_accounts[1].key(), expected_to_ata, CustomError::InvalidRemainingAccounts);
+        // data = remaining_accounts[1].try_borrow_mut_data()?;
+        // let _to_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
+        require_keys_eq!(remaining_accounts[1].key(), expected_to_ata, CustomError::InvalidDestinationRemainingAccount);
 
-        // Transfer the SPL to the authority ATA
+        //Transfer the SPL to the authority ATA
         let cpi_program = self.token_program.to_account_info();
 
         let cpi_accounts = Transfer {
@@ -269,7 +262,9 @@ impl<'info> MintNFT<'info> {
 
         let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
 
-        transfer(cpi_context, self.config.price_spl.unwrap())
+        transfer(cpi_context, self.config.price_spl.unwrap())?;
+
+        Ok(())
     }
 
     pub fn close_account(&mut self) -> Result<()> {

@@ -16,4 +16,8 @@ pub enum CustomError {
     InvalidSPLSettings,
     #[msg("Invalid number of remaining accounts")]
     InvalidRemainingAccounts,
+    #[msg("Invalid source remaining accounts")]
+    InvalidSourceRemainingAccount,
+    #[msg("Invalid destination remaining accounts")]
+    InvalidDestinationRemainingAccount,
 }
