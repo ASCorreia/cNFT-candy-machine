@@ -213,7 +213,7 @@ impl<'info> MintNFT<'info> {
         self.config.current_supply += 1;
 
         // If the total supply is equal to the current supply, close the account
-        if self.config.current_supply == self.config.total_supply {
+        if self.config.current_supply >= self.config.total_supply {
             self.close_account()?;
         }
 
