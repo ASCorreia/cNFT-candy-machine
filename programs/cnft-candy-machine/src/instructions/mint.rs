@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 
+use anchor_lang::solana_program::program::invoke;
 use anchor_lang::system_program::{
-    Transfer, 
-    transfer
+    Transfer,
+    transfer, 
 };
+use anchor_spl::token::spl_token::instruction::transfer as spl_transfer;
 use anchor_spl::associated_token::{
     get_associated_token_address, 
     AssociatedToken
@@ -243,26 +245,34 @@ impl<'info> MintNFT<'info> {
         let expected_to_ata = get_associated_token_address(&self.authority.key, &self.config.spl_address.as_ref().unwrap());
 
         // Check if the first remaining accounts are is the expected source ATA
-        // let mut data = remaining_accounts[0].try_borrow_mut_data()?;
-        // let _from_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
         require_keys_eq!(remaining_accounts[0].key(), expected_from_ata, CustomError::InvalidSourceRemainingAccount);
 
         // Check if the second remaining account is the expected destination ATA
-        // data = remaining_accounts[1].try_borrow_mut_data()?;
-        // let _to_ata = &mut TokenAccount::try_deserialize(&mut data.as_ref()).expect("Error Deserializing Data");
         require_keys_eq!(remaining_accounts[1].key(), expected_to_ata, CustomError::InvalidDestinationRemainingAccount);
 
-        //Transfer the SPL to the authority ATA
-        let cpi_program = self.token_program.to_account_info();
 
-        let cpi_accounts = Transfer {
-            from: remaining_accounts[0].to_account_info(),
-            to: remaining_accounts[1].to_account_info(),
-        };
-
-        let cpi_context = CpiContext::new(cpi_program, cpi_accounts);
-
-        transfer(cpi_context, self.config.price_spl.unwrap())?;
+        // Create the transfer instruction
+        let transfer_tokens_instruction = spl_transfer(
+            &self.token_program.key,
+            &remaining_accounts[0].key(),
+            &remaining_accounts[1].key(),
+            &self.user.key(),
+            &[&self.user.key()],
+            self.config.price_spl.unwrap(),
+        )?;
+        
+        // Collect the required accounts for the transfer
+        let required_accounts_for_transfer = [
+            remaining_accounts[0].to_account_info().clone(),
+            remaining_accounts[1].to_account_info().clone(),
+            self.user.to_account_info().clone(),
+        ];
+        
+        // Invoke the transfer instruction
+        invoke(
+            &transfer_tokens_instruction,
+            &required_accounts_for_transfer,
+        )?;
 
         Ok(())
     }

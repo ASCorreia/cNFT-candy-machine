@@ -324,15 +324,13 @@ describe("cnft-candy-machine", () => {
     console.log("Transaction signature:", tx);
   })
 
-  xit("Mint cNFT to Public User (Tree is now public) - Pay with SPL", async() => {
+  it("Mint cNFT to Public User (Tree is now public) - Pay with SPL", async() => {
     console.log("\nMinting cNFT for user: ", publicOne.publicKey.toBase58());
 
     const source = await getOrCreateAssociatedTokenAccount(provider.connection, publicOne, paymentMint, publicOne.publicKey);
-    console.log("Source address: ", source.address.toBase58());
     const destination = await getOrCreateAssociatedTokenAccount(provider.connection, wallet.payer, paymentMint, provider.wallet.publicKey);
-    console.log("Destination address: ", destination.address.toBase58());
 
-    console.log("Payment Mint", paymentMint.toBase58());
+    console.log("User Payment Mint balance before mint: ", (await provider.connection.getTokenAccountBalance(source.address)).value.uiAmount);
 
     const tx = await program.methods.mint("Test", "TST", "https://arweave.net/123", false)
     .accounts({
@@ -349,9 +347,10 @@ describe("cnft-candy-machine", () => {
       { pubkey: destination.address, isWritable: true, isSigner: false },
     ])
     .signers([publicOne])
-    .rpc();
+    .rpc({skipPreflight: true});
 
     console.log("\ncNFT minted for Public User");
-    console.log("Transaction signature:", tx);
+    console.log("User Payment Mint balance after mint: ", (await provider.connection.getTokenAccountBalance(source.address)).value.uiAmount);
+    console.log("\nTransaction signature:", tx);
   })
 });
