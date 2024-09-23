@@ -28,8 +28,8 @@ pub mod cnft_candy_machine {
         ctx.accounts.create_collection(name, symbol, uri)
     }
 
-    pub fn add_allow_list(ctx: Context<AllowList>, amount: u8) -> Result<()> {
-        ctx.accounts.add(amount)
+    pub fn add_allow_list(ctx: Context<AllowList>, user: Pubkey, amount: u8) -> Result<()> {
+        ctx.accounts.add(user, amount)
     }
 
     pub fn mint<'info>(ctx: Context<'_, '_, '_, 'info, MintNFT<'info>>, name: String, symbol: String, uri: String, pay_sol: bool) -> Result<()> {

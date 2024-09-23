@@ -179,10 +179,9 @@ describe("cnft-candy-machine", () => {
   })
 
   it("Add user to allow list", async () => {
-  const tx = await program.methods.addAllowList(88)
+  const tx = await program.methods.addAllowList(allowedOne.publicKey, 88)
     .accounts({
       authority: provider.wallet.publicKey,
-      user: allowedOne.publicKey,
     })
     .rpc();
 
@@ -194,10 +193,9 @@ describe("cnft-candy-machine", () => {
   });
 
   it("Add user to allow list", async () => {
-  const tx = await program.methods.addAllowList(10)
+  const tx = await program.methods.addAllowList(allowedTwo.publicKey, 10)
     .accounts({
       authority: provider.wallet.publicKey,
-      user: allowedTwo.publicKey,
     })
     .rpc();
 
@@ -209,10 +207,9 @@ describe("cnft-candy-machine", () => {
   });
 
   it("Add user to allow list", async () => {
-  const tx = await program.methods.addAllowList(50)
+  const tx = await program.methods.addAllowList(allowedThree.publicKey, 50)
     .accounts({
       authority: provider.wallet.publicKey,
-      user: allowedThree.publicKey,
     })
     .rpc();
 
@@ -234,7 +231,6 @@ describe("cnft-candy-machine", () => {
       allowMint: null,
       allowMintAta: null,
       treeConfig: treeConfigPublicKey,
-      leafOwner: allowedOne.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
     })
     .signers([allowedOne])
@@ -258,7 +254,6 @@ describe("cnft-candy-machine", () => {
       allowMint,
       allowMintAta,
       treeConfig: treeConfigPublicKey,
-      leafOwner: wallet.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
     })
     .rpc();
@@ -277,7 +272,6 @@ describe("cnft-candy-machine", () => {
         allowMint: null,
         allowMintAta: null,
         treeConfig: treeConfigPublicKey,
-        leafOwner: publicOne.publicKey,
         merkleTree: emptyMerkleTree.publicKey,
       })
       .signers([publicOne])
@@ -314,7 +308,6 @@ describe("cnft-candy-machine", () => {
       allowMint: null,
       allowMintAta: null,
       treeConfig: treeConfigPublicKey,
-      leafOwner: publicOne.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
     })
     .signers([publicOne])
@@ -339,7 +332,6 @@ describe("cnft-candy-machine", () => {
       allowMint: null,
       allowMintAta: null,
       treeConfig: treeConfigPublicKey,
-      leafOwner: publicOne.publicKey,
       merkleTree: emptyMerkleTree.publicKey,
     })
     .remainingAccounts([

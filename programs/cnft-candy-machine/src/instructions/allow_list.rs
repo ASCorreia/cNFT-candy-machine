@@ -9,7 +9,6 @@ use crate::state::{
 pub struct AllowList<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
-    pub user: SystemAccount<'info>,
     #[account(
         mut,
         seeds = [b"config", authority.key().as_ref()],
@@ -23,11 +22,11 @@ pub struct AllowList<'info> {
 }
 
 impl<'info> AllowList<'info> {
-    pub fn add(&mut self, amount: u8) -> Result<()> {
+    pub fn add(&mut self, user: Pubkey, amount: u8) -> Result<()> {
         // Add the user to the allow list
         self.config.allow_list.push(
             AllowListStruct{
-                user: self.user.key(),
+                user,
                 amount,
             }
         );

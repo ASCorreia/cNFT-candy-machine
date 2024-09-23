@@ -85,7 +85,6 @@ pub struct MintNFT<'info> {
     /// CHECK: Tree Config account that will be checked by the Bubblegum Program
     #[account(mut)]
     pub tree_config: UncheckedAccount<'info>,
-    pub leaf_owner: SystemAccount<'info>,
     /// CHECK: Merkle Tree account that will be checked by the Bubblegum Program
     #[account(mut)]
     pub merkle_tree: UncheckedAccount<'info>,
@@ -100,7 +99,6 @@ pub struct MintNFT<'info> {
     pub compression_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub metadata_program: Program<'info, Metadata>,
 }
 
@@ -157,8 +155,8 @@ impl<'info> MintNFT<'info> {
         // CPI call to the Bubblegum Program to mint the cNFT
         MintToCollectionV1CpiBuilder::new(&self.bubblegum_program.to_account_info())
             .tree_config(&self.tree_config.to_account_info())
-            .leaf_owner(&self.leaf_owner.to_account_info())
-            .leaf_delegate(&self.leaf_owner)
+            .leaf_owner(&self.user.to_account_info())
+            .leaf_delegate(&self.user)
             .merkle_tree(&self.merkle_tree.to_account_info())
             .payer(&self.user.to_account_info())
             .tree_creator_or_delegate(&self.config.to_account_info())

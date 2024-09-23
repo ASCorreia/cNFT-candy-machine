@@ -1,7 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
-    associated_token::AssociatedToken, 
-    metadata::Metadata, 
+    associated_token::AssociatedToken,
     token::{
         Mint, 
         Token
@@ -44,10 +43,10 @@ pub struct Initialize<'info> {
         mint::freeze_authority = config,
     )]
     pub collection: Account<'info, Mint>,
-    /// CHECK: Tree Config chcecks will be performed by the Bubblegum Program
+    /// CHECK: Tree Config checks will be performed by the Bubblegum Program
     #[account(mut)]
     pub tree_config: UncheckedAccount<'info>,
-    /// CHECK: Initialized Merkle Tree Account. Initialization will be performed by the Bubblegum Program 
+    /// CHECK: Unitialized Merkle Tree Account. Initialization will be performed by the Bubblegum Program 
     #[account(mut)]
     pub merkle_tree: UncheckedAccount<'info>,
     /// CHECK: SPL NOOP Program checked by the corresponding address
@@ -62,7 +61,6 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub metadata_program: Program<'info, Metadata>,
 }
 
 impl<'info> Initialize<'info> {
