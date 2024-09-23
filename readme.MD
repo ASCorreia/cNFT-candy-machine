@@ -1,7 +1,5 @@
 # cNFT Candy Machine
 
-This example demonstrates how to a candy machine for cNFTs.
-
 In this example, a user will be able to create a cNFT candy machine. That candy machine will have different properties:
 - Addresses can be added to the candy machine whitelist
 - A token can be specified as a "whitelist token", allowing users to mint a cNFT by burning a speciific token
